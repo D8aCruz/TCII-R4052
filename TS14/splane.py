@@ -335,7 +335,7 @@ def cauer_RC( imm, remover_en_inf=True ):
 
     
         
-    while not(rem.is_zero):
+    while not(rem.is_zero) and not(koi.is_zero):
         
         ko += [koi]
         rem = 1/rem
@@ -358,7 +358,12 @@ def cauer_RC( imm, remover_en_inf=True ):
                 bRemoverPolo = True
 
 
-    ko += [koi]
+    if koi.is_zero:
+        # deshago para entender al resto de la misma 
+        # naturaleza que el último elemento que retiró.
+        rem = 1/rem
+    else:
+        ko += [koi]
 
     imm_as_cauer = koi
     
@@ -405,7 +410,7 @@ def cauer_LC( imm, remover_en_inf = True ):
         rem, koi = remover_polo_dc(rem)
         
     
-    while not(rem.is_zero):
+    while not(rem.is_zero) and not(koi.is_zero):
         
         ko += [koi]
         rem = 1/rem
@@ -415,7 +420,12 @@ def cauer_LC( imm, remover_en_inf = True ):
         else:
             rem, koi = remover_polo_dc(rem)
 
-    ko += [koi]
+    if koi.is_zero:
+        # deshago para entender al resto de la misma 
+        # naturaleza que el último elemento que retiró.
+        rem = 1/rem
+    else:
+        ko += [koi]
 
     imm_as_cauer = koi
 
@@ -469,6 +479,8 @@ def dibujar_foster_derivacion(k0 = None, koo = None, ki = None, y_exc = None):
         
         d = Drawing(unit=4)  # unit=2 makes elements have shorter than normal leads
 
+        bComponenteDibujado = False
+
         d = dibujar_puerto_entrada(d,
                                        voltage_lbl = ('+', '$V$', '-'), 
                                        current_lbl = '$I$')
@@ -505,7 +517,7 @@ def dibujar_foster_derivacion(k0 = None, koo = None, ki = None, y_exc = None):
                     
                     dibujar_espacio_derivacion(d)
                 
-                d = dibujar_tanque_derivacion(d, un_tanque[0], un_tanque[1])
+                d = dibujar_tanque_derivacion(d, inductor_lbl = un_tanque[1], capacitor_lbl = 1/un_tanque[0])
 
                 bComponenteDibujado = True
 
@@ -572,17 +584,19 @@ def dibujar_foster_serie(k0 = None, koo = None, ki = None, z_exc = None):
 
         if not(k0 is None):
         
-            d = dibujar_elemento_serie(d, Inductor, 1/k0)
+            d = dibujar_elemento_serie(d, Capacitor, 1/k0)
             
         if not(koo is None):
         
-            d = dibujar_elemento_serie(d, Capacitor, koo)
+            d = dibujar_elemento_serie(d, Inductor, koo)
             
         if not(ki is None):
 
             for un_tanque in ki:
                 
-                d = dibujar_tanque_serie(d, un_tanque[0], un_tanque[1])
+                d = dibujar_tanque_serie(d, inductor_lbl = 1/un_tanque[0], capacitor_lbl = un_tanque[1] )
+
+                dibujar_espacio_derivacion(d)
 
 
         d += Line().right().length(d.unit*.25)
@@ -668,7 +682,7 @@ def foster( imm ):
     
                 elif sp.degree(den) == 1 and sp.degree(num) == 0:
                     
-                    k0_i = den.as_poly().LC() / num
+                    k0_i = num / den.as_poly().LC() 
                     
             
             ki += [[k0_i, koo_i]]
@@ -875,7 +889,7 @@ def parametrize_sos(num, den):
 
 def simplify_n_monic(tt):
     
-    num, den = sp.fraction(tt)
+    num, den = sp.fraction(sp.simplify(sp.expand(tt)))
     
     num = sp.poly(num,s)
     den = sp.poly(den,s)
@@ -892,19 +906,19 @@ def simplify_n_monic(tt):
 
 def pp(z1, z2):
     '''
-    Convierte la MAD en MAI luego de levantar de referencia.
+    Asocia en paralelo dos impedancias o en serie dos admitancias.
 
     Parameters
     ----------
-    Ymai : Symbolic Matrix
-        Matriz admitancia indefinida.
-    nodes2del : list or integer
-        Nodos que se van a eliminar.
+    z1 : Symbolic
+        Impedancia 1.
+    z2 : Symbolic
+        Impedancia 2.
 
     Returns
     -------
-    YY : Symbolic Matrix
-        Matriz admitancia 
+    zp : Symbolic
+         Impedancia resultante.
 
     '''
 
@@ -1146,10 +1160,10 @@ def dibujar_elemento_serie(d, elemento, sym_label=''):
 
 def dibujar_espacio_derivacion(d):
 
-    d += Line().right().length(d.unit)
+    d += Line().right().length(d.unit*.25)
     d.push()
     d += Gap().down().label( '' )
-    d += Line().left().length(d.unit)
+    d += Line().left().length(d.unit*.25)
     d.pop()
 
     return(d)
@@ -1174,21 +1188,21 @@ def dibujar_elemento_derivacion(d, elemento, sym_label=''):
     return(d)
 
 
-def dibujar_tanque_RC_serie(d, sym_R_label='', sym_cap_label=''):
+def dibujar_tanque_RC_serie(d, sym_R_label='', capacitor_lbl=''):
     
     if isinstance(sym_R_label, sp.Number ):
         sym_R_label = to_latex(sym_R_label)
     else:
         sym_R_label = str_to_latex(sym_R_label)
     
-    if isinstance(sym_cap_label, sp.Number ):
-        sym_cap_label = to_latex(sym_cap_label)
+    if isinstance(capacitor_lbl, sp.Number ):
+        capacitor_lbl = to_latex(capacitor_lbl)
     else:
-        sym_cap_label = str_to_latex(sym_cap_label)
+        capacitor_lbl = str_to_latex(capacitor_lbl)
     
     d.push()
     d += Dot()
-    d += Capacitor().right().label(sym_cap_label, fontsize=16)
+    d += Capacitor().right().label(capacitor_lbl, fontsize=16)
     d.pop()
     d += Line().up().length(d.unit*.5)
     d += Resistor().right().label(sym_R_label, fontsize=16)
@@ -1201,45 +1215,45 @@ def dibujar_tanque_RC_serie(d, sym_R_label='', sym_cap_label=''):
 
     return(d)
 
-def dibujar_tanque_RC_derivacion(d, sym_R_label='', sym_cap_label=''):
+def dibujar_tanque_RC_derivacion(d, sym_R_label='', capacitor_lbl=''):
     
     if isinstance(sym_R_label, sp.Number ):
         sym_R_label = to_latex(sym_R_label)
     else:
         sym_R_label = str_to_latex(sym_R_label)
     
-    if isinstance(sym_cap_label, sp.Number ):
-        sym_cap_label = to_latex(sym_cap_label)
+    if isinstance(capacitor_lbl, sp.Number ):
+        capacitor_lbl = to_latex(capacitor_lbl)
     else:
-        sym_cap_label = str_to_latex(sym_cap_label)
+        capacitor_lbl = str_to_latex(capacitor_lbl)
     
     d.push()
     d += Dot()
-    d += Capacitor().down().label(sym_cap_label, fontsize=16).length(d.unit*.5)
+    d += Capacitor().down().label(capacitor_lbl, fontsize=16).length(d.unit*.5)
     d += Resistor().down().label(sym_R_label, fontsize=16).length(d.unit*.5)
     d += Dot()
     d.pop()
 
     return(d)
 
-def dibujar_tanque_serie(d, sym_ind_label='', sym_cap_label=''):
+def dibujar_tanque_RL_serie(d, sym_R_label='', sym_ind_label=''):
+    
+    if isinstance(sym_R_label, sp.Number ):
+        sym_R_label = to_latex(sym_R_label)
+    else:
+        sym_R_label = str_to_latex(sym_R_label)
     
     if isinstance(sym_ind_label, sp.Number ):
         sym_ind_label = to_latex(sym_ind_label)
     else:
         sym_ind_label = str_to_latex(sym_ind_label)
     
-    if isinstance(sym_cap_label, sp.Number ):
-        sym_cap_label = to_latex(sym_cap_label)
-    else:
-        sym_cap_label = str_to_latex(sym_cap_label)
-    
     d.push()
     d += Dot()
-    d += Capacitor().right().label(sym_cap_label, fontsize=16)
+    d += Inductor().right().label(sym_ind_label, fontsize=16)
     d.pop()
     d += Line().up().length(d.unit*.5)
-    d += Inductor().right().label(sym_ind_label, fontsize=16)
+    d += Resistor().right().label(sym_R_label, fontsize=16)
     d += Line().down().length(d.unit*.5)
     d += Dot()
     d.push()
@@ -1249,22 +1263,118 @@ def dibujar_tanque_serie(d, sym_ind_label='', sym_cap_label=''):
 
     return(d)
 
-def dibujar_tanque_derivacion(d, sym_ind_label='', sym_cap_label=''):
+def dibujar_tanque_RL_derivacion(d, sym_R_label='', sym_ind_label=''):
+    
+    if isinstance(sym_R_label, sp.Number ):
+        sym_R_label = to_latex(sym_R_label)
+    else:
+        sym_R_label = str_to_latex(sym_R_label)
     
     if isinstance(sym_ind_label, sp.Number ):
         sym_ind_label = to_latex(sym_ind_label)
     else:
         sym_ind_label = str_to_latex(sym_ind_label)
     
-    if isinstance(sym_cap_label, sp.Number ):
-        sym_cap_label = to_latex(sym_cap_label)
+    d.push()
+    d += Dot()
+    d += Inductor().down().label(sym_ind_label, fontsize=16).length(d.unit*.5)
+    d += Resistor().down().label(sym_R_label, fontsize=16).length(d.unit*.5)
+    d += Dot()
+    d.pop()
+
+    return(d)
+
+def dibujar_tanque_serie(d, sym_ind_label='', sym_cap_label=''):
+    
+    if isinstance(sym_R_label, sp.Number ):
+        sym_R_label = to_latex(sym_R_label)
     else:
-        sym_cap_label = str_to_latex(sym_cap_label)
+        sym_R_label = str_to_latex(sym_R_label)
+    
+    if isinstance(inductor_lbl, sp.Number ):
+        inductor_lbl = to_latex(inductor_lbl)
+    else:
+        inductor_lbl = str_to_latex(inductor_lbl)
     
     d.push()
     d += Dot()
-    d += Capacitor().down().label(sym_cap_label, fontsize=16).length(d.unit*.5)
-    d += Inductor().down().label(sym_ind_label, fontsize=16).length(d.unit*.5)
+    d += Inductor().right().label(inductor_lbl, fontsize=16)
+    d.pop()
+    d += Line().up().length(d.unit*.5)
+    d += Resistor().right().label(sym_R_label, fontsize=16)
+    d += Line().down().length(d.unit*.5)
+    d += Dot()
+    d.push()
+    d += Gap().down().label( '' )
+    d += Line().left()
+    d.pop()
+
+    return(d)
+
+def dibujar_tanque_RL_derivacion(d, sym_R_label='', inductor_lbl=''):
+    
+    if isinstance(sym_R_label, sp.Number ):
+        sym_R_label = to_latex(sym_R_label)
+    else:
+        sym_R_label = str_to_latex(sym_R_label)
+    
+    if isinstance(inductor_lbl, sp.Number ):
+        inductor_lbl = to_latex(inductor_lbl)
+    else:
+        inductor_lbl = str_to_latex(inductor_lbl)
+    
+    d.push()
+    d += Dot()
+    d += Inductor().down().label(inductor_lbl, fontsize=16).length(d.unit*.5)
+    d += Resistor().down().label(sym_R_label, fontsize=16).length(d.unit*.5)
+    d += Dot()
+    d.pop()
+
+    return(d)
+
+def dibujar_tanque_serie(d, inductor_lbl='', capacitor_lbl=''):
+    
+    if isinstance(inductor_lbl, sp.Number ):
+        inductor_lbl = to_latex(inductor_lbl)
+    else:
+        inductor_lbl = str_to_latex(inductor_lbl)
+    
+    if isinstance(capacitor_lbl, sp.Number ):
+        capacitor_lbl = to_latex(capacitor_lbl)
+    else:
+        capacitor_lbl = str_to_latex(capacitor_lbl)
+    
+    d.push()
+    d += Dot()
+    d += Capacitor().right().label(capacitor_lbl, fontsize=16)
+    d.pop()
+    d += Line().up().length(d.unit*.5)
+    d += Inductor().right().label(inductor_lbl, fontsize=16)
+    d += Line().down().length(d.unit*.5)
+    d += Dot()
+    d.push()
+    d += Gap().down().label( '' )
+    d += Line().left()
+    d.pop()
+
+    return(d)
+
+def dibujar_tanque_derivacion(d, inductor_lbl='', capacitor_lbl=''):
+    
+    if isinstance(inductor_lbl, sp.Number ):
+        inductor_lbl = to_latex(inductor_lbl)
+    else:
+        inductor_lbl = str_to_latex(inductor_lbl)
+    
+    if isinstance(capacitor_lbl, sp.Number ):
+        capacitor_lbl = to_latex(capacitor_lbl)
+    else:
+        capacitor_lbl = str_to_latex(capacitor_lbl)
+    
+    d.push()
+    d += Dot()
+    d += Capacitor().down().label(capacitor_lbl, fontsize=16).length(d.unit*.5)
+    d += Inductor().down().label(inductor_lbl, fontsize=16).length(d.unit*.5)
     d += Dot()
     d.pop()
 
@@ -1275,7 +1385,7 @@ def dibujar_tanque_derivacion(d, sym_ind_label='', sym_cap_label=''):
     Bloque de funciones para la síntesis gráfica de imitancias
 '''
 
-def remover_polo_sigma( imm, sigma, isImpedance = True,  sigma_zero = None ):
+def remover_polo_sigma( imm, sigma, isImpedance = True,  isRC = True,  sigma_zero = None ):
     '''
     Se removerá el residuo en sobre el eje $\sigma$ (sigma) de la impedancia (zz) 
     o admitancia (yy) de forma completa, o parcial en el caso que se especifique una 
@@ -1324,36 +1434,73 @@ def remover_polo_sigma( imm, sigma, isImpedance = True,  sigma_zero = None ):
         # remoción total
         
         if isImpedance:
-            kk = sp.limit(zz*(s + sigma), s, -sigma)
+            if isRC:
+                kk = sp.limit(zz*(s + sigma), s, -sigma)
+            else:
+                # RL
+                kk = sp.limit(zz*(s + sigma)/s, s, -sigma)
+                
         else:
-            kk = sp.limit(yy*(s + sigma)/s, s, -sigma)
+            if isRC:
+                kk = sp.limit(yy*(s + sigma)/s, s, -sigma)
+            else:
+                kk = sp.limit(yy*(s + sigma), s, -sigma)
+        
+        if kk.is_negative:
+            assert('Residuo negativo. Verificar Z/Y RC/RL')
         
     else:
         # remoción parcial
         if isImpedance:
-            kk = sp.simplify(sp.expand(zz*(s + sigma))).subs(s, -sigma_zero)
+            if isRC:
+                kk = sp.simplify(sp.expand(zz*(s + sigma))).subs(s, -sigma_zero)
+            else:
+                kk = sp.simplify(sp.expand(zz*(s + sigma)/s)).subs(s, -sigma_zero)
             
         else:
-            kk = sp.simplify(sp.expand(yy*(s + sigma)/s)).subs(s, -sigma_zero)
+            if isRC:
+                kk = sp.simplify(sp.expand(yy*(s + sigma)/s)).subs(s, -sigma_zero)
+            else:
+                kk = sp.simplify(sp.expand(yy*(s + sigma))).subs(s, -sigma_zero)
+
+        if kk.is_negative:
+            assert('Residuo negativo. Verificar Z/Y RC/RL')
     
     # extraigo kk
     if isImpedance:
-        # Asumiendo Z_RC        
-        R = kk/sigma
-        C = 1/kk
-        kk  = kk/(s+sigma)
+        if isRC:
+            # Z_RC        
+            R = kk/sigma
+            CoL = 1/kk
+            kk  = kk/(s+sigma)
+        else:
+            # Z_RL        
+            R = kk
+            CoL = kk/sigma
+            kk  = kk*s/(s+sigma)
         
     else:
-        
-        # Asumiendo Y_RC        
-        C = kk/sigma
-        R = 1/kk
-        
-        kk  = kk*s/(s+sigma)
 
-    imit_r = sp.factor(sp.simplify(sp.expand(yy - kk)))
+        if isRC:
+            # Y_RC        
+            CoL = kk/sigma
+            R = 1/kk
+            kk  = kk*s/(s+sigma)
+        else:
+            # Y_RL
+            R = sigma/kk
+            CoL = 1/kk
+            kk  = kk/(s+sigma)
+        
 
-    return( [imit_r, kk, R, C] )
+    if isImpedance:
+        imit_r = sp.factor(sp.simplify(sp.expand(zz - kk)))
+    
+    else:
+    
+        imit_r = sp.factor(sp.simplify(sp.expand(yy - kk)))
+
+    return( [imit_r, kk, R, CoL] )
 
 def remover_polo_jw( imit, omega = None , isImpedance = True, omega_zero = None ):
     '''
@@ -1725,6 +1872,333 @@ def str_to_latex( unstr):
 '''
     Funciones de conversión de matrices de cuadripolos lineales
 '''
+
+def S2Ts_s(Spar):
+    '''
+    Convierte una matriz de parámetros scattering (S) simbólica 
+    al modelo de parámetros transferencia de scattering (Ts).
+
+    Parameters
+    ----------
+    Spar : Symbolic Matrix
+        Matriz de parámetros S.
+
+    Returns
+    -------
+    Ts : Symbolic Matrix
+        Matriz de parámetros de transferencia scattering.
+
+    '''
+    
+    Ts = sp.Matrix([[0, 0], [0, 0]])
+    
+    # A = Z11/Z21
+    Ts[0,0] = sp.Rational('1')
+    # B = DZ/Z21
+    Ts[0,1] = -Spar[1,1]
+    # C = 1/Z21
+    Ts[1,0] = Spar[0,0]
+    # D = Z22/Z21
+    Ts[1,1] = -sp.simplify(sp.expand(sp.Determinant(Spar)))
+    
+    return( sp.simplify(sp.expand(1 / Spar[1,0] * Ts) ) ) 
+
+def Ts2S_s(Ts):
+    '''
+    Convierte una matriz de transferencia de scattering (Ts) simbólica 
+    al modelo de parámetros scattering (S).
+
+    Parameters
+    ----------
+    Ts : Symbolic Matrix
+        Matriz de parámetros S.
+
+    Returns
+    -------
+    Spar : Symbolic Matrix
+        Matriz de parámetros de scattering.
+
+    '''
+    
+    Spar = sp.Matrix([[0, 0], [0, 0]])
+    
+    # A = Z11/Z21
+    Spar[0,0] = Ts[1,0]
+    # B = DZ/Z21
+    Spar[0,1] = sp.simplify(sp.expand(sp.Determinant(Ts)))
+    # C = 1/Z21
+    Spar[1,0] = sp.Rational('1') 
+    # D = Z22/Z21
+    Spar[1,1] = -Ts[0,1] 
+    
+    return( sp.simplify(sp.expand( 1 / Ts[0,0] * Spar ) ) ) 
+
+def Tabcd2S_s(Tabcd, Z0 = sp.Rational('1') ):
+    '''
+    Convierte una matriz de parámetros ABCD (Tabcd) simbólica 
+    al modelo de parámetros scattering (S).
+
+    Parameters
+    ----------
+    Ts : Symbolic Matrix
+        Matriz de parámetros S.
+
+    Returns
+    -------
+    Spar : Symbolic Matrix
+        Matriz de parámetros de scattering.
+
+    '''
+    
+    Spar = sp.Matrix([[0, 0], [0, 0]])
+    
+    # A = Z11/Z21
+    Spar[0,0] = Tabcd[0,0] + Tabcd[0,1]/Z0 - Tabcd[1,0]*Z0 - Tabcd[1,1]
+    # B = DZ/Z21
+    Spar[0,1] = 2 * sp.simplify(sp.expand(sp.Determinant(Tabcd)))
+    # C = 1/Z21
+    Spar[1,0] = sp.Rational('2') 
+    # D = Z22/Z21
+    Spar[1,1] = -Tabcd[0,0] + Tabcd[0,1]/Z0 - Tabcd[1,0]*Z0 + Tabcd[1,1]
+    
+    common = Tabcd[0,0] + Tabcd[0,1]/Z0 + Tabcd[1,0]*Z0 + Tabcd[1,1]
+    
+    return( sp.simplify(sp.expand( 1 / common * Spar ) ) ) 
+
+def S2Tabcd_s(Spar, Z0 = sp.Rational('1') ):
+    '''
+    Convierte una matriz de parámetros ABCD (Tabcd) simbólica 
+    al modelo de parámetros scattering (S).
+
+    Parameters
+    ----------
+    Ts : Symbolic Matrix
+        Matriz de parámetros S.
+
+    Returns
+    -------
+    Spar : Symbolic Matrix
+        Matriz de parámetros de scattering.
+
+    '''
+    
+    Tabcd = sp.Matrix([[0, 0], [0, 0]])
+    
+    # A = Z11/Z21
+    Tabcd[0,0] = (1 - Spar[0,0]) * (1 + Spar[1,1]) + Spar[1,0] * Spar[0,1]
+    # B = DZ/Z21
+    Tabcd[0,1] = Z0*((1 + Spar[0,0]) * (1 + Spar[1,1]) - Spar[1,0] * Spar[0,1])
+    # C = 1/Z21
+    Tabcd[1,0] = 1/Z0*((1 - Spar[0,0]) * (1 - Spar[1,1]) - Spar[1,0] * Spar[0,1])
+    # D = Z22/Z21
+    Tabcd[1,1] = (1 - Spar[0,0]) * (1 + Spar[1,1]) + Spar[1,0] * Spar[0,1]
+    
+    return( sp.simplify(sp.expand( 1 / 2 / Spar[1,0] * Tabcd ) ) ) 
+
+def SparZ_s(Zexc, Z01=sp.Rational('1'), Z02=sp.Rational('1')):
+    '''
+    Convierte una matriz de transferencia de scattering (Ts) simbólica 
+    al modelo de parámetros scattering (S).
+
+    Parameters
+    ----------
+    Zexc : Symbolic impedance
+           Función de excitación de la impedancia a representar.
+
+    Z01 : Symbolic impedance
+          Impedancia de referencia en el plano 1
+
+    Z02 : Symbolic impedance
+          Impedancia de referencia en el plano 2
+
+    Returns
+    -------
+    Spar : Symbolic Matrix
+           Matriz de parámetros de scattering de Z.
+
+    '''
+    
+    Spar = sp.Matrix([[0, 0], [0, 0]])
+    
+    # A = Z11/Z21
+    Spar[0,0] = Zexc
+    # B = DZ/Z21
+    Spar[0,1] = 2*Z01
+    # C = 1/Z21
+    Spar[1,0] = 2*Z01
+    # D = Z22/Z21
+    Spar[1,1] = Zexc 
+    
+    return( sp.simplify(sp.expand( 1 / (Zexc + 2*Z01) * Spar) ) ) 
+
+def SparY_s(Yexc, Y01=sp.Rational('1'), Y02=sp.Rational('1')):
+    '''
+    Convierte una matriz de transferencia de scattering (Ts) simbólica 
+    al modelo de parámetros scattering (S).
+
+    Parameters
+    ----------
+    Yexc : Symbolic impedance
+           Función de excitación de la admitancia a representar.
+
+    Y01 : Symbolic impedance
+          Admitancia de referencia en el plano 1
+
+    Y02 : Symbolic impedance
+          Admitancia de referencia en el plano 2
+
+    Returns
+    -------
+    Spar : Symbolic Matrix
+           Matriz de parámetros de scattering de Y.
+
+    '''
+    
+    Spar = sp.Matrix([[0, 0], [0, 0]])
+    
+    # A = Z11/Z21
+    Spar[0,0] = -Yexc
+    # B = DZ/Z21
+    Spar[0,1] = 2*Y01
+    # C = 1/Z21
+    Spar[1,0] = 2*Y01
+    # D = Z22/Z21
+    Spar[1,1] = -Yexc 
+    
+    return( sp.simplify(sp.expand( 1 / (Yexc + 2*Y01) * Spar) ) ) 
+
+def TabcdLYZ_s(Yexc, Zexc):
+    '''
+    Implementa una matriz de transferencia ABCD (Tabcd) a partir de 
+    un cuadripolo constituido por una Y en derivación seguida  por 
+    una Z en serie.
+
+    Parameters
+    ----------
+    Yexc : Symbolic admitance
+           Función de excitación de la admitancia a representar.
+    
+    Zexc : Symbolic impedance
+           Función de excitación de la impedancia a representar.
+
+    Returns
+    -------
+    Tabcd : Symbolic Matrix
+           Matriz de parámetros ABCD.
+
+    '''
+    
+    Tpar = sp.Matrix([[0, 0], [0, 0]])
+    
+    # A = Z11/Z21
+    Tpar[0,0] = sp.Rational('1')  
+    # B = DZ/Z21
+    Tpar[0,1] = Zexc
+    # C = 1/Z21
+    Tpar[1,0] = Yexc
+    # D = Z22/Z21
+    Tpar[1,1] = sp.Rational('1') + sp.simplify(sp.expand(Zexc * Yexc))
+    
+    return( Tpar ) 
+
+def TabcdLZY_s(Zexc, Yexc):
+    '''
+    Implementa una matriz de transferencia ABCD (Tabcd) a partir de 
+    un cuadripolo constituido por una Z en serie seguida una Y en 
+    derivación.
+
+    Parameters
+    ----------
+    Zexc : Symbolic impedance
+           Función de excitación de la impedancia a representar.
+    
+    Yexc : Symbolic admitance
+           Función de excitación de la admitancia a representar.
+
+    Returns
+    -------
+    Tabcd : Symbolic Matrix
+           Matriz de parámetros ABCD.
+
+    '''
+    
+    Tpar = sp.Matrix([[0, 0], [0, 0]])
+    
+    # A = Z11/Z21
+    Tpar[0,0] = sp.Rational('1') + sp.simplify(sp.expand(Zexc * Yexc))
+    # B = DZ/Z21
+    Tpar[0,1] = Zexc
+    # C = 1/Z21
+    Tpar[1,0] = Yexc
+    # D = Z22/Z21
+    Tpar[1,1] = sp.Rational('1')  
+    
+    return( Tpar ) 
+
+def TabcdZ_s(Zexc):
+    '''
+    Implementa una matriz de transferencia ABCD (Tabcd) a partir de 
+    un cuadripolo constituido únicamente por una Z en serie.
+
+    Parameters
+    ----------
+    Zexc : Symbolic impedance
+           Función de excitación de la impedancia a representar.
+
+
+    Returns
+    -------
+    Tabcd : Symbolic Matrix
+           Matriz de parámetros ABCD.
+
+    '''
+    
+    Tpar = sp.Matrix([[0, 0], [0, 0]])
+    
+    # A = Z11/Z21
+    Tpar[0,0] = sp.Rational('1') 
+    # B = DZ/Z21
+    Tpar[0,1] = Zexc
+    # C = 1/Z21
+    Tpar[1,0] = sp.Rational('0') 
+    # D = Z22/Z21
+    Tpar[1,1] = sp.Rational('1')  
+    
+    return( Tpar ) 
+
+
+def TabcdY_s(Yexc):
+    '''
+    Implementa una matriz de transferencia ABCD (Tabcd) a partir de 
+    un cuadripolo constituido únicamente por una Y en derivación.
+
+    Parameters
+    ----------
+    Yexc : Symbolic admitance
+           Función de excitación de la admitancia a representar.
+
+
+    Returns
+    -------
+    Tabcd : Symbolic Matrix
+           Matriz de parámetros ABCD.
+
+    '''
+    
+    Tpar = sp.Matrix([[0, 0], [0, 0]])
+    
+    # A = Z11/Z21
+    Tpar[0,0] = sp.Rational('1') 
+    # B = DZ/Z21
+    Tpar[0,1] = sp.Rational('0')
+    # C = 1/Z21
+    Tpar[1,0] = Yexc
+    # D = Z22/Z21
+    Tpar[1,1] = sp.Rational('1')  
+    
+    return( Tpar ) 
+
+
 
 def Y2T_s(YY):
     
@@ -2217,33 +2691,75 @@ Otras funciones
 
 '''
 
+def trim_poly_s( this_poly, tol = 10**-6 ):
+
+    all_terms = this_poly.as_poly().all_terms()
+    
+    poly_acc = 0
+    
+    for this_pow, this_coeff in all_terms:
+    
+        if this_coeff > tol:
+            
+            poly_acc = poly_acc + this_coeff * s**this_pow[0]
+
+
+    return(poly_acc)
+
+def trim_func_s( rat_func, tol = 10**-6 ):
+
+    num, den = rat_func.as_numer_denom()
+    
+    num = trim_poly_s(num, tol)
+    den = trim_poly_s(den, tol)
+    
+    return(num/den)
+
 def modsq2mod_s( aa ):
 
     num, den = sp.fraction(aa)
+
+    k = sp.poly(num,s).LC() / sp.poly(den,s).LC()
     
-    roots_num = sp.solve(num)
-    
-    real_part_roots = [ (s-roots_numm) for roots_numm in roots_num if sp.re(roots_numm) <= 0]
+    roots_num = sp.roots(num)
 
     poly_acc = sp.Rational('1')
     
-    for roots_numm in real_part_roots:
-        poly_acc *= roots_numm
-    
+    for this_root in roots_num.keys():
+        
+        if sp.re(this_root) <= 0:
+            
+            # multiplicidad
+            mult = roots_num[this_root]
+
+            if mult > 1:
+                poly_acc *= (s-this_root)**sp.Rational(mult/2)
+            else:
+                poly_acc *= (s-this_root)
+                
+            
+
     num = sp.simplify(sp.expand(poly_acc))
 
-    roots_num = sp.solve(den)
+    roots_num = sp.roots(den)
     
-    real_part_roots = [ (s-roots_numm) for roots_numm in roots_num if sp.re(roots_numm) <= 0]
-
     poly_acc = sp.Rational('1')
-    
-    for roots_numm in real_part_roots:
-        poly_acc *= roots_numm
+
+    for this_root in roots_num.keys():
+        
+        if sp.re(this_root) <= 0:
+            
+            # multiplicidad
+            mult = roots_num[this_root]
+
+            if mult > 1:
+                poly_acc *= (s-this_root)**sp.Rational(mult/2)
+            else:
+                poly_acc *= (s-this_root)
     
     poly_acc = sp.simplify(sp.expand(poly_acc))
 
-    return(sp.simplify(sp.expand(num/poly_acc))) 
+    return(sp.simplify(sp.expand(sp.sqrt(k) * num/poly_acc))) 
 
 
 def modsq2mod( aa ):
@@ -3448,4 +3964,3 @@ def _cplxreal(z, tol=None):
     zc = (zp + zn.conj()) / 2
 
     return zc, zr
-
